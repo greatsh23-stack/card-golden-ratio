@@ -158,7 +158,7 @@ footer b{color:var(--ink-soft)}
     <div class="cell"><input type="number" id="transit" value="80" min="0" step="10"><span class="unit">만원</span></div>
   </div>
   <div class="row" style="border-bottom:none">
-    <label for="rate">한계세율<small>과세표준 구간 기준, 지방소득세 포함</small></label>
+    <label for="rate">한계세율 <small id="rate-note">총급여 기준 자동 추정 — 정확히 아신다면 직접 바꿔도 됩니다</small></label>
     <div class="cell"><select id="rate">
       <option value="0.066">6.6%</option>
       <option value="0.165" selected>16.5%</option>
@@ -238,9 +238,27 @@ const fmt=n=>{
 };
 const ids=["salary","credit","debit","culture","market","transit"];
 let stampTimer=null;
+let rateAuto=true;
+
+function estimateRate(salary){
+  // 근로소득공제 (만원 단위)
+  let d;
+  if(salary<=500)d=salary*.7;
+  else if(salary<=1500)d=350+(salary-500)*.4;
+  else if(salary<=4500)d=750+(salary-1500)*.15;
+  else if(salary<=10000)d=1200+(salary-4500)*.05;
+  else d=Math.min(2000,1475+(salary-10000)*.02);
+  const base=Math.max(0,salary-d-150); // 본인 기본공제만 반영한 과세표준 추정
+  if(base<=1400)return"0.066";
+  if(base<=5000)return"0.165";
+  if(base<=8800)return"0.264";
+  if(base<=15000)return"0.385";
+  return"0.418";
+}
 
 function calc(){
   const v={};ids.forEach(id=>v[id]=Math.max(0,+$(id).value||0));
+  if(rateAuto)$("rate").value=estimateRate(v.salary);
   const rate=+$("rate").value;
   const under7k=v.salary<=7000;
 
@@ -306,7 +324,11 @@ function calc(){
   $("s3").textContent=fmt(s2end)+" 초과분";
 }
 ids.forEach(id=>$(id).addEventListener("input",calc));
-$("rate").addEventListener("change",calc);
+$("rate").addEventListener("change",()=>{
+  rateAuto=false;
+  $("rate-note").textContent="직접 선택한 세율로 계산합니다";
+  calc();
+});
 $("kids").addEventListener("change",calc);
 calc();
 </script>
